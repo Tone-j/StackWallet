@@ -1,0 +1,47 @@
+name: stack_wallet
+description: StackWallet — Your digital loyalty card wallet for South African retailers.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Local Storage
+  hive_flutter: ^1.1.0
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # Barcode & QR Generation
+  barcode_widget: ^2.0.4
+
+  # Utilities
+  uuid: ^4.5.1
+  path_provider: ^2.1.5
+  image_picker: ^1.1.2
+
+  # Animations
+  flutter_animate: ^4.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#00695C"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+
+flutter:
+  uses-material-design: true
