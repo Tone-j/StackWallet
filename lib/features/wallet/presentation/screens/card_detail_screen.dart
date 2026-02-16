@@ -8,11 +8,25 @@ import '../../data/models/loyalty_card.dart';
 import '../../providers/wallet_providers.dart';
 import '../widgets/barcode_display.dart';
 import '../widgets/wallet_card.dart';
+import 'barcode_fullscreen_screen.dart';
 
 class CardDetailScreen extends ConsumerWidget {
   final String cardId;
 
   const CardDetailScreen({super.key, required this.cardId});
+
+  void _openFullscreenBarcode(BuildContext context, LoyaltyCard card) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, __, ___) => BarcodeFullscreenScreen(card: card),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,10 +101,16 @@ class CardDetailScreen extends ConsumerWidget {
           children: [
             Hero(
               tag: 'card-${card.id}',
-              child: WalletCard(card: card),
+              child: WalletCard(
+                card: card,
+                onBarcodeTap: () => _openFullscreenBarcode(context, card),
+              ),
             ),
             const SizedBox(height: 24),
-            BarcodeDisplay(card: card),
+            BarcodeDisplay(
+              card: card,
+              onTap: () => _openFullscreenBarcode(context, card),
+            ),
             const SizedBox(height: 24),
             _InfoSection(card: card),
           ],

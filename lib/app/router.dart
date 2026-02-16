@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/wallet/presentation/screens/add_edit_card_screen.dart';
 import '../features/wallet/presentation/screens/card_detail_screen.dart';
+import '../features/wallet/presentation/screens/notifications_screen.dart';
+import '../features/wallet/presentation/screens/settings_screen.dart';
 import '../features/wallet/presentation/screens/wallet_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -12,19 +14,18 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/',
-        pageBuilder:
-            (context, state) => CustomTransitionPage<void>(
-              key: state.pageKey,
-              child: const WalletScreen(),
-              transitionsBuilder: (
-                context,
-                animation,
-                secondaryAnimation,
-                child,
-              ) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-            ),
+        pageBuilder: (context, state) => CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const WalletScreen(),
+          transitionsBuilder: (
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+          ) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
       ),
       GoRoute(
         path: '/card/:id',
@@ -38,12 +39,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/add',
-        pageBuilder:
-            (context, state) => MaterialPage<void>(
-              key: state.pageKey,
-              child: const AddEditCardScreen(),
-              fullscreenDialog: true,
-            ),
+        pageBuilder: (context, state) => MaterialPage<void>(
+          key: state.pageKey,
+          child: const AddEditCardScreen(),
+          fullscreenDialog: true,
+        ),
       ),
       GoRoute(
         path: '/edit/:id',
@@ -55,6 +55,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             fullscreenDialog: true,
           );
         },
+      ),
+      GoRoute(
+        path: '/settings',
+        pageBuilder: (context, state) => MaterialPage<void>(
+          key: state.pageKey,
+          child: const SettingsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/notifications',
+        pageBuilder: (context, state) => MaterialPage<void>(
+          key: state.pageKey,
+          child: const NotificationsScreen(),
+        ),
       ),
     ],
   );

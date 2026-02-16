@@ -1,15 +1,13 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../../../app/theme/app_colors.dart';
-import '../../../../core/constants/sa_retailers.dart';
+import '../../../../core/constants/store_registry.dart';
 import '../../../../core/utils/barcode_utils.dart';
 import '../../data/models/loyalty_card.dart';
 import '../../providers/wallet_providers.dart';
+import 'barcode_scanner_screen.dart';
 
 class AddEditCardScreen extends ConsumerStatefulWidget {
   final String? cardId;
@@ -24,19 +22,16 @@ class AddEditCardScreen extends ConsumerStatefulWidget {
 
 class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _storeNameController = TextEditingController();
   final _cardNumberController = TextEditingController();
   final _memberNameController = TextEditingController();
   final _notesController = TextEditingController();
 
+  StoreConfig? _selectedStore;
   BarcodeFormat _selectedFormat = BarcodeFormat.code128;
-  Color _selectedColor = AppColors.brandColorPalette.first;
-  String? _customLogoPath;
   bool _initialized = false;
 
   @override
   void dispose() {
-    _storeNameController.dispose();
     _cardNumberController.dispose();
     _memberNameController.dispose();
     _notesController.dispose();
@@ -46,45 +41,44 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
   void _initFromCard(LoyaltyCard card) {
     if (_initialized) return;
     _initialized = true;
-    _storeNameController.text = card.storeName;
+    _selectedStore = StoreRegistry.findByName(card.storeName);
     _cardNumberController.text = card.cardNumber;
     _memberNameController.text = card.memberName ?? '';
     _notesController.text = card.notes ?? '';
     _selectedFormat = card.barcodeFormat;
-    _selectedColor = Color(card.brandColor);
-    _customLogoPath = card.customLogoPath;
   }
 
-  void _onRetailerMatch(String value) {
-    final retailer = SARetailers.findByName(value);
-    if (retailer != null) {
-      setState(() {
-        _selectedColor = retailer.brandColor;
-        _selectedFormat = retailer.defaultFormat;
-      });
-    }
-  }
+  Color get _cardColor =>
+      _selectedStore?.brandColor ?? const Color(0xFF263238);
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
+  Future<void> _scanBarcode() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
-    if (image != null) {
-      setState(() => _customLogoPath = image.path);
+    if (result != null && mounted) {
+      setState(() {
+        _cardNumberController.text = result;
+      });
     }
   }
 
   void _saveCard() {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedStore == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a store'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
-    final storeName = _storeNameController.text.trim();
+    final storeName = _selectedStore!.name;
     final cardNumber = _cardNumberController.text.trim();
     final memberName = _memberNameController.text.trim();
     final notes = _notesController.text.trim();
+    final brandColor = _selectedStore!.brandColor.toARGB32();
 
     if (widget.isEditing) {
       final existing = ref.read(cardByIdProvider(widget.cardId!));
@@ -95,8 +89,7 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
         cardNumber: cardNumber,
         memberName: memberName.isEmpty ? null : memberName,
         barcodeFormat: _selectedFormat,
-        brandColor: _selectedColor.toARGB32(),
-        customLogoPath: _customLogoPath,
+        brandColor: brandColor,
         notes: notes.isEmpty ? null : notes,
       );
       ref.read(cardsProvider.notifier).updateCard(updated);
@@ -106,8 +99,7 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
         cardNumber: cardNumber,
         memberName: memberName.isEmpty ? null : memberName,
         barcodeFormat: _selectedFormat,
-        brandColor: _selectedColor.toARGB32(),
-        customLogoPath: _customLogoPath,
+        brandColor: brandColor,
         notes: notes.isEmpty ? null : notes,
       );
       ref.read(cardsProvider.notifier).addCard(card);
@@ -152,120 +144,25 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Live preview card
             _buildPreviewCard(),
             const SizedBox(height: 32),
 
-            // Store Name with autocomplete
-            const _SectionLabel(label: 'Store Name'),
+            // Store Dropdown
+            const _SectionLabel(label: 'Store'),
             const SizedBox(height: 8),
-            Autocomplete<SARetailer>(
-              initialValue:
-                  TextEditingValue(text: _storeNameController.text),
-              optionsBuilder: (textEditingValue) {
-                if (textEditingValue.text.isEmpty) {
-                  return const Iterable<SARetailer>.empty();
-                }
-                return SARetailers.all.where(
-                  (r) => r.name
-                      .toLowerCase()
-                      .contains(textEditingValue.text.toLowerCase()),
-                );
-              },
-              displayStringForOption: (retailer) => retailer.name,
-              onSelected: (retailer) {
-                _storeNameController.text = retailer.name;
-                setState(() {
-                  _selectedColor = retailer.brandColor;
-                  _selectedFormat = retailer.defaultFormat;
-                });
-              },
-              fieldViewBuilder:
-                  (context, controller, focusNode, onSubmitted) {
-                controller.addListener(() {
-                  if (controller.text != _storeNameController.text) {
-                    _storeNameController.text = controller.text;
-                    _onRetailerMatch(controller.text);
-                  }
-                });
-                return TextFormField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g., Clicks ClubCard',
-                    prefixIcon: Icon(Icons.store_rounded),
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Store name is required'
-                      : null,
-                  onChanged: (_) => setState(() {}),
-                );
-              },
-            ),
+            _buildStoreDropdown(theme),
             const SizedBox(height: 20),
 
-            // Card Number
+            // Card Number with scanner
             const _SectionLabel(label: 'Card Number'),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _cardNumberController,
-              decoration: const InputDecoration(
-                hintText: 'Enter your card number',
-                prefixIcon: Icon(Icons.credit_card_rounded),
-              ),
-              keyboardType: TextInputType.text,
-              onChanged: (_) => setState(() {}),
-              validator: (v) => v == null || v.trim().isEmpty
-                  ? 'Card number is required'
-                  : null,
-            ),
-            const SizedBox(height: 20),
-
-            // Member Name
-            const _SectionLabel(label: 'Member Name (Optional)'),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _memberNameController,
-              decoration: const InputDecoration(
-                hintText: 'Your name on the card',
-                prefixIcon: Icon(Icons.person_rounded),
-              ),
-              textCapitalization: TextCapitalization.words,
-              onChanged: (_) => setState(() {}),
-            ),
+            _buildCardNumberField(),
             const SizedBox(height: 20),
 
             // Barcode Format
             const _SectionLabel(label: 'Barcode Format'),
             const SizedBox(height: 8),
             _buildFormatSelector(),
-            const SizedBox(height: 20),
-
-            // Brand Colour
-            const _SectionLabel(label: 'Card Colour'),
-            const SizedBox(height: 8),
-            _buildColorPicker(theme),
-            const SizedBox(height: 20),
-
-            // Logo
-            const _SectionLabel(label: 'Card Logo (Optional)'),
-            const SizedBox(height: 8),
-            _buildLogoPicker(theme),
-            const SizedBox(height: 20),
-
-            // Notes
-            const _SectionLabel(label: 'Notes (Optional)'),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                hintText: 'Any additional notes...',
-                prefixIcon: Icon(Icons.notes_rounded),
-              ),
-              maxLines: 3,
-              onChanged: (_) => setState(() {}),
-            ),
             const SizedBox(height: 32),
 
             // Save Button
@@ -277,7 +174,9 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
               child: Text(
                 widget.isEditing ? 'Update Card' : 'Add to Wallet',
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(height: 40),
@@ -287,32 +186,92 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
     );
   }
 
+  // ── Store Dropdown ──────────────────────────────────────────────────
+
+  Widget _buildStoreDropdown(ThemeData theme) {
+    return DropdownButtonFormField<StoreConfig>(
+      value: _selectedStore,
+      decoration: const InputDecoration(
+        hintText: 'Select a store',
+        prefixIcon: Icon(Icons.store_rounded),
+      ),
+      isExpanded: true,
+      items: StoreRegistry.stores.map((store) {
+        return DropdownMenuItem<StoreConfig>(
+          value: store,
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: SvgPicture.asset(
+                  store.logoAsset,
+                  width: 24,
+                  height: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  store.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      onChanged: (store) {
+        if (store != null) {
+          setState(() {
+            _selectedStore = store;
+            _selectedFormat = store.defaultFormat;
+          });
+        }
+      },
+      validator: (v) => v == null ? 'Please select a store' : null,
+    );
+  }
+
+  // ── Card Number Field ─────────────────────────────────────────────
+
+  Widget _buildCardNumberField() {
+    return TextFormField(
+      controller: _cardNumberController,
+      decoration: InputDecoration(
+        hintText: 'Enter or scan your card number',
+        prefixIcon: const Icon(Icons.credit_card_rounded),
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+          onPressed: _scanBarcode,
+          tooltip: 'Scan barcode',
+        ),
+      ),
+      keyboardType: TextInputType.text,
+      onChanged: (_) => setState(() {}),
+      validator: (v) =>
+          v == null || v.trim().isEmpty ? 'Card number is required' : null,
+    );
+  }
+
   // ── Preview ──────────────────────────────────────────────────────────
 
   Widget _buildPreviewCard() {
-    final textColor = _selectedColor.computeLuminance() > 0.5
-        ? Colors.black87
-        : Colors.white;
-    final subtextColor = _selectedColor.computeLuminance() > 0.5
-        ? Colors.black54
-        : Colors.white70;
+    final textColor =
+        _cardColor.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
 
-    final storeName = _storeNameController.text.isEmpty
-        ? 'Store Name'
-        : _storeNameController.text;
+    final storeName = _selectedStore?.name ?? 'Store Name';
     final cardNumber = _cardNumberController.text.isEmpty
         ? '0000 0000 0000'
         : _cardNumberController.text;
-    final memberName = _memberNameController.text;
 
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: _selectedColor,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: _selectedColor.withAlpha(77),
+            color: _cardColor.withAlpha(77),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -357,16 +316,6 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
                       ),
                     ],
                   ),
-                  if (memberName.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      memberName,
-                      style: TextStyle(
-                        color: subtextColor,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
                   const Spacer(),
                   Text(
                     BarcodeUtils.formatDisplayNumber(cardNumber),
@@ -388,24 +337,16 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
   }
 
   Widget _buildPreviewLogo(Color textColor) {
-    if (_customLogoPath != null) {
+    if (_selectedStore != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          File(_customLogoPath!),
+        child: SvgPicture.asset(
+          _selectedStore!.logoAsset,
           width: 36,
           height: 36,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _buildLetterAvatar(textColor),
         ),
       );
     }
-    return _buildLetterAvatar(textColor);
-  }
-
-  Widget _buildLetterAvatar(Color textColor) {
-    final name = _storeNameController.text;
     return Container(
       width: 36,
       height: 36,
@@ -415,7 +356,7 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
       ),
       child: Center(
         child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : 'S',
+          'S',
           style: TextStyle(
             color: textColor,
             fontSize: 18,
@@ -442,104 +383,6 @@ class _AddEditCardScreenState extends ConsumerState<AddEditCardScreen> {
       }).toList(),
     );
   }
-
-  // ── Colour Picker ────────────────────────────────────────────────────
-
-  Widget _buildColorPicker(ThemeData theme) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: AppColors.brandColorPalette.map((color) {
-        final isSelected = color == _selectedColor;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedColor = color),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : Colors.transparent,
-                width: 3,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: color.withAlpha(102),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: isSelected
-                ? Icon(
-                    Icons.check_rounded,
-                    color: color.computeLuminance() > 0.5
-                        ? Colors.black
-                        : Colors.white,
-                    size: 20,
-                  )
-                : null,
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  // ── Logo Picker ──────────────────────────────────────────────────────
-
-  Widget _buildLogoPicker(ThemeData theme) {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: _pickImage,
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.outline.withAlpha(77),
-              ),
-            ),
-            child: _customLogoPath != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      File(_customLogoPath!),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.broken_image_rounded),
-                    ),
-                  )
-                : const Icon(Icons.add_photo_alternate_rounded),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            _customLogoPath != null
-                ? 'Logo selected'
-                : 'Tap to add a store logo',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        if (_customLogoPath != null)
-          IconButton(
-            icon: const Icon(Icons.close_rounded),
-            onPressed: () => setState(() => _customLogoPath = null),
-          ),
-      ],
-    );
-  }
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -551,9 +394,9 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 }

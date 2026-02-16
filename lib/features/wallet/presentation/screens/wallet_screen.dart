@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/app.dart';
 import '../../providers/wallet_providers.dart';
 import '../widgets/card_stack.dart';
 import '../widgets/empty_wallet.dart';
@@ -39,7 +38,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final cards = ref.watch(filteredCardsProvider);
     final allCards = ref.watch(cardsProvider);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -67,20 +65,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               icon:
                   Icon(_isSearching ? Icons.close : Icons.search_rounded),
               onPressed: _toggleSearch,
+              tooltip: _isSearching ? 'Close search' : 'Search',
             ),
           IconButton(
-            icon: Icon(
-              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-            ),
-            onPressed: () {
-              final current = ref.read(themeModeProvider);
-              ref.read(themeModeProvider.notifier).state = switch (current) {
-                ThemeMode.light => ThemeMode.dark,
-                ThemeMode.dark => ThemeMode.system,
-                ThemeMode.system => ThemeMode.light,
-              };
-            },
-            tooltip: 'Toggle theme',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/notifications'),
+            tooltip: 'Notifications',
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+            tooltip: 'Settings',
           ),
         ],
       ),

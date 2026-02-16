@@ -1,15 +1,16 @@
-import 'dart:io';
-
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../../core/constants/store_registry.dart';
 import '../../../../core/utils/barcode_utils.dart';
 import '../../data/models/loyalty_card.dart';
 
 class WalletCard extends StatelessWidget {
   final LoyaltyCard card;
+  final VoidCallback? onBarcodeTap;
 
-  const WalletCard({super.key, required this.card});
+  const WalletCard({super.key, required this.card, this.onBarcodeTap});
 
   Color get _bg => Color(card.brandColor);
 
@@ -114,28 +115,42 @@ class WalletCard extends StatelessWidget {
                     ),
                   ],
                   const Spacer(),
-                  SizedBox(
-                    height: 40,
-                    child: BarcodeWidget(
-                      barcode: BarcodeUtils.getBarcodeType(card.barcodeFormat),
-                      data: card.cardNumber,
-                      color: _textColor,
-                      drawText: false,
-                      errorBuilder: (context, error) => Text(
-                        'Invalid barcode',
-                        style: TextStyle(color: _subtextColor, fontSize: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    BarcodeUtils.formatDisplayNumber(card.cardNumber),
-                    style: TextStyle(
-                      color: _textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2.0,
-                      fontFamily: 'monospace',
+                  GestureDetector(
+                    onTap: onBarcodeTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 40,
+                          child: BarcodeWidget(
+                            barcode: BarcodeUtils.getBarcodeType(
+                              card.barcodeFormat,
+                            ),
+                            data: card.cardNumber,
+                            color: _textColor,
+                            drawText: false,
+                            errorBuilder: (context, error) => Text(
+                              'Invalid barcode',
+                              style: TextStyle(
+                                color: _subtextColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          BarcodeUtils.formatDisplayNumber(card.cardNumber),
+                          style: TextStyle(
+                            color: _textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2.0,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -148,15 +163,14 @@ class WalletCard extends StatelessWidget {
   }
 
   Widget _buildLogo() {
-    if (card.customLogoPath != null) {
+    final store = StoreRegistry.findByName(card.storeName);
+    if (store != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          File(card.customLogoPath!),
+        child: SvgPicture.asset(
+          store.logoAsset,
           width: 36,
           height: 36,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildLetterAvatar(),
         ),
       );
     }
