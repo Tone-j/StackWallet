@@ -73,7 +73,6 @@ class _CardEntryState extends State<_CardEntry>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
-  bool _isPressed = false;
 
   @override
   void initState() {
@@ -96,19 +95,12 @@ class _CardEntryState extends State<_CardEntry>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _isPressed = true);
-        _controller.forward();
-      },
+      onTapDown: (_) => _controller.forward(),
       onTapUp: (_) {
-        setState(() => _isPressed = false);
         _controller.reverse();
         widget.onTap();
       },
-      onTapCancel: () {
-        setState(() => _isPressed = false);
-        _controller.reverse();
-      },
+      onTapCancel: () => _controller.reverse(),
       onLongPress: widget.onLongPress,
       child: AnimatedBuilder(
         animation: _scaleAnimation,

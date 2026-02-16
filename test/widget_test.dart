@@ -1,29 +1,58 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_wallet/app/app.dart';
+
+import 'package:stack_wallet/features/wallet/data/models/loyalty_card.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    // await tester.pumpWidget(const StackWalletApp());
+  group('LoyaltyCard', () {
+    test('create() generates unique id and timestamps', () {
+      final card = LoyaltyCard.create(
+        storeName: 'Clicks ClubCard',
+        cardNumber: '1234567890',
+        brandColor: 0xFF0072BC,
+      );
 
-    // // Verify that our counter starts at 0.
-    // expect(find.text('0'), findsOneWidget);
-    // expect(find.text('1'), findsNothing);
+      expect(card.id, isNotEmpty);
+      expect(card.storeName, equals('Clicks ClubCard'));
+      expect(card.cardNumber, equals('1234567890'));
+      expect(card.isFavorite, isFalse);
+      expect(card.barcodeFormat, equals(BarcodeFormat.code128));
+    });
 
-    // // Tap the '+' icon and trigger a frame.
-    // await tester.tap(find.byIcon(Icons.add));
-    // await tester.pump();
+    test('toJson/fromJson round-trips correctly', () {
+      final original = LoyaltyCard.create(
+        storeName: 'Pick n Pay',
+        cardNumber: '9876543210',
+        memberName: 'Test User',
+        brandColor: 0xFF003DA5,
+        barcodeFormat: BarcodeFormat.qrCode,
+        notes: 'Smart Shopper',
+      );
 
-    // // Verify that our counter has incremented.
-    // expect(find.text('0'), findsNothing);
-    // expect(find.text('1'), findsOneWidget);
+      final json = original.toJson();
+      final restored = LoyaltyCard.fromJson(json);
+
+      expect(restored.id, equals(original.id));
+      expect(restored.storeName, equals(original.storeName));
+      expect(restored.cardNumber, equals(original.cardNumber));
+      expect(restored.memberName, equals(original.memberName));
+      expect(restored.barcodeFormat, equals(original.barcodeFormat));
+      expect(restored.brandColor, equals(original.brandColor));
+      expect(restored.notes, equals(original.notes));
+    });
+
+    test('copyWith preserves unchanged fields', () {
+      final card = LoyaltyCard.create(
+        storeName: 'Woolworths',
+        cardNumber: '1111222233',
+        brandColor: 0xFF1A1A1A,
+      );
+
+      final updated = card.copyWith(storeName: 'Woolworths WRewards');
+
+      expect(updated.id, equals(card.id));
+      expect(updated.storeName, equals('Woolworths WRewards'));
+      expect(updated.cardNumber, equals(card.cardNumber));
+      expect(updated.brandColor, equals(card.brandColor));
+    });
   });
 }
